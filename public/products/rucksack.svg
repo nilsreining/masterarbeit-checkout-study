@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800"><defs><radialGradient id="bg" cx="50%" cy="42%" r="75%"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#e9e9e6"/></radialGradient><radialGradient id="sh" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#000" stop-opacity=".28"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+<linearGradient id="body" x1="0" x2="1"><stop offset="0" stop-color="#25292e"/><stop offset=".35" stop-color="#4b525a"/><stop offset=".55" stop-color="#3e444b"/><stop offset="1" stop-color="#202327"/></linearGradient>
+<linearGradient id="pocket" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#454c54"/><stop offset="1" stop-color="#30353b"/></linearGradient>
+</defs><rect width="800" height="800" fill="url(#bg)"/>
+<ellipse cx="400" cy="694" rx="190" ry="22" fill="url(#sh)"/>
+<path d="M366 182C366 140 434 140 434 182" fill="none" stroke="#1d2024" stroke-width="16" stroke-linecap="round"/>
+<path d="M240 470C228 470 222 480 222 494V630C222 650 234 662 252 662H262V470Z" fill="#2a2e33"/>
+<path d="M560 470C572 470 578 480 578 494V630C578 650 566 662 548 662H538V470Z" fill="#2a2e33"/>
+<path d="M258 290C258 210 318 176 400 176C482 176 542 210 542 290L548 646C548 674 528 690 500 690H300C272 690 252 674 252 646Z" fill="url(#body)"/>
+<path d="M274 300C276 226 330 198 400 198C470 198 524 226 526 300" fill="none" stroke="#15171a" stroke-width="5" stroke-dasharray="7 5" opacity=".6"/>
+<rect x="276" y="292" width="10" height="30" rx="4" fill="#9aa0a6"/>
+<rect x="514" y="292" width="10" height="30" rx="4" fill="#9aa0a6"/>
+<rect x="300" y="450" width="200" height="200" rx="34" fill="url(#pocket)"/>
+<path d="M318 488H482" stroke="#15171a" stroke-width="5" stroke-dasharray="7 5" opacity=".6"/>
+<rect x="468" y="478" width="10" height="30" rx="4" fill="#9aa0a6"/>
+<rect x="370" y="372" width="60" height="24" rx="6" fill="#2a2e33"/>
+<text x="400" y="389" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" letter-spacing="3" fill="#fff" opacity=".6">TERO</text>
+<path d="M290 260C310 222 350 204 390 200" stroke="#fff" stroke-opacity=".15" stroke-width="5" fill="none" stroke-linecap="round"/>
+</svg>
