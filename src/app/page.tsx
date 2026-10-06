@@ -1,8 +1,20 @@
-import { redirect } from "next/navigation";
+"use client";
 
-/** Die Wurzel-URL leitet (inkl. eines evtl. vorhandenen Tokens) zur Studie weiter. */
-export default async function RootPage({ searchParams }: PageProps<"/">) {
-  const { token } = await searchParams;
-  const value = Array.isArray(token) ? token[0] : token;
-  redirect(value ? `/study?token=${encodeURIComponent(value)}` : "/study");
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { ROUTES } from "@/lib/study/routes";
+
+/**
+ * Die Wurzel-URL leitet im Browser zur Studie weiter. Der komplette Query-String
+ * (inkl. ?token=…) bleibt dabei unverändert erhalten.
+ * Clientseitig, damit die Seite statisch exportiert werden kann (GitHub Pages).
+ */
+export default function RootPage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    router.replace(`${ROUTES.intro}${window.location.search}`);
+  }, [router]);
+
+  return <div className="min-h-screen bg-neutral-100" aria-busy="true" />;
 }

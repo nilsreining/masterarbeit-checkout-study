@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { withBasePath } from "@/lib/basePath";
 import type { Product } from "@/lib/types";
 
 /**
@@ -12,13 +13,12 @@ export function ProductImage({ product, className = "" }: { product: Product; cl
     <div className={`relative aspect-square overflow-hidden rounded-md bg-neutral-100 ${className}`}>
       {product.imageUrl && (
         <Image
-          src={product.imageUrl}
+          // Bildpfade aus public/ brauchen den Unterpfad (z. B. GitHub Pages) explizit.
+          src={withBasePath(product.imageUrl)}
           alt={product.name}
           fill
           sizes="(min-width: 1024px) 400px, (min-width: 640px) 50vw, 100vw"
           className="object-cover"
-          // SVGs werden von der Next-Bildoptimierung nicht verarbeitet.
-          unoptimized={product.imageUrl.endsWith(".svg")}
         />
       )}
     </div>

@@ -131,7 +131,8 @@ type LoadState =
 
 function StudyProviderForToken({ token, children }: { token: string; children: React.ReactNode }) {
   const router = useRouter();
-  const pathname = usePathname();
+  // Mit trailingSlash: true liefert usePathname() z. B. "/study/complete/" → für Vergleiche normalisieren.
+  const pathname = usePathname().replace(/(.)\/$/, "$1");
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [completedInThisVisit, setCompletedInThisVisit] = useState(false);
   const sessionRef = useRef<StudySession | null>(null);

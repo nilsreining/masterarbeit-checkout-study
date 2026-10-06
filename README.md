@@ -27,8 +27,8 @@ Danach <http://localhost:3000> öffnen. Optional: `cp .env.example .env.local`
 | Befehl              | Zweck                                       |
 | ------------------- | ------------------------------------------- |
 | `npm run dev`       | Entwicklungsserver                          |
-| `npm run build`     | Production-Build                            |
-| `npm run start`     | Production-Build lokal starten              |
+| `npm run build`     | Statischer Export nach `out/` (ohne Unterpfad)  |
+| `npm run build:pages` | Statischer Export für GitHub Pages (Unterpfad `/masterarbeit-checkout-study`) |
 | `npm run lint`      | ESLint                                      |
 | `npm run typecheck` | TypeScript-Prüfung                          |
 
@@ -88,13 +88,47 @@ Der Token wird an jede Route als `?token=…` angehängt. Die Wurzel-URL `/` lei
 
 ---
 
+## Veröffentlichung (statischer Export / GitHub Pages)
+
+Das Projekt wird als rein statische Website exportiert (`output: "export"` in `next.config.ts`).
+Es braucht keinen Node-Server; Teilnehmerdaten, Speicherung und Befragung laufen direkt aus dem
+Browser gegen Google Apps Script bzw. Google Forms.
+
+```bash
+npm run build:pages   # erzeugt out/ für https://nilsreining.github.io/masterarbeit-checkout-study/
+```
+
+- **Unterpfad:** `basePath = /masterarbeit-checkout-study` wird nur bei `GITHUB_PAGES=true`
+  gesetzt (Skript `build:pages`). `npm run dev` und `npm run build` laufen unter `/`.
+  Das Skript nutzt Unix-Syntax (macOS, Linux, GitHub Actions).
+- **Links und Router** (`next/link`, `router.push/replace`) ergänzen den Unterpfad automatisch.
+  Für Bildpfade aus `public/` und relative `window.location`-Ziele gibt es `withBasePath()` in
+  `src/lib/basePath.ts`.
+- **`trailingSlash: true`:** Jede Seite liegt als `<pfad>/index.html` vor; Adressen enden mit `/`,
+  z. B. `/study/?token=…`. `/study?token=…` wird mit erhaltenem Token dorthin umgeleitet.
+- **Produktseiten** werden über `generateStaticParams()` für alle 6 Produkte erzeugt.
+- **`public/.nojekyll`** verhindert, dass GitHub Pages (Jekyll) den Ordner `_next` ignoriert.
+- Studien-Link nach der Veröffentlichung:
+  `https://nilsreining.github.io/masterarbeit-checkout-study/study/?token=<TOKEN>`
+
+Lokale Vorschau des Pages-Builds (unter dem Unterpfad):
+
+```bash
+npm run build:pages
+mkdir -p /tmp/pages && rm -rf /tmp/pages/masterarbeit-checkout-study && cp -R out /tmp/pages/masterarbeit-checkout-study
+cd /tmp/pages && python3 -m http.server 8090
+# → http://localhost:8090/masterarbeit-checkout-study/study/?token=<TOKEN>
+```
+
+---
+
 ## Projektstruktur
 
 ```
 src/
 ├── app/                          Next.js App Router (nur dünne Seiten, Logik liegt in components/lib)
 │   ├── layout.tsx                Root-Layout (lang="de", noindex)
-│   ├── page.tsx                  / → Weiterleitung auf /study
+│   ├── page.tsx                  / → Weiterleitung auf /study (im Browser, Query bleibt erhalten)
 │   ├── study/
 │   │   ├── layout.tsx            StudyProvider für alle Studienseiten
 │   │   ├── page.tsx              Einleitung
@@ -114,6 +148,7 @@ src/
     ├── types.ts                  zentrales Datenmodell
     ├── studyConfig.ts            Konstanten (Default, Versand, Liefertage) + Survey-URL-Builder
     ├── format.ts                 Preis-/Zahlenformatierung (de-DE)
+    ├── basePath.ts               Unterpfad für Bildpfade u. Ä. (GitHub Pages)
     ├── cart.ts                   Warenkorb-Logik als reine Funktionen (Hinzufügen, Menge, Summen, Migration)
     ├── data/products.ts          Produktkatalog (für alle identisch)
     ├── data/checkoutDisplayData.ts  fiktive, vorausgefüllte Lieferadresse und Zahlungsart (nur Anzeige)
@@ -476,7 +511,7 @@ Siehe `.env.example`.
   zusätzlich per `console.debug` geloggt.
 - **`/dev`:** Demo-Links, gespeicherte Session, Entscheidung und Events je Demo-Token,
   plus Zurücksetzen.
-- In Production (`npm run build && npm run start`) sind `/dev` (404) und `__studyDebug` nicht
+- Im exportierten Build (`npm run build`) sind `/dev` (404) und `__studyDebug` nicht
   vorhanden. In der Teilnehmer-UI gibt es kein Debug-Panel.
 
 ---

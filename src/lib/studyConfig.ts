@@ -4,6 +4,7 @@
  * Alle Werte, die zwischen Generic und Personalized IDENTISCH sein müssen
  * (Shopname, Lieferregeln, Versandkosten, Default), sind hier gebündelt.
  */
+import { withBasePath } from "./basePath";
 import type { DeliveryChoice } from "./types";
 
 export const SHOP_NAME = "Nordwaren";
@@ -85,7 +86,8 @@ export function buildPostSurveyUrl(token: string): string {
   // „usp=pp_url“ kennzeichnet bei Google Forms einen vorausgefüllten Link.
   if (url.hostname === "docs.google.com") url.searchParams.set("usp", "pp_url");
   url.searchParams.set(POST_SURVEY_TOKEN_PARAM, token);
-  return isRelative ? `${url.pathname}${url.search}` : url.toString();
+  // Relative Pfade (lokaler Platzhalter) laufen über window.location → Unterpfad selbst ergänzen.
+  return isRelative ? withBasePath(`${url.pathname}${url.search}`) : url.toString();
 }
 
 /** Debug-Hilfen (Konsole, window.__studyDebug, /dev) nur im Development-Modus. */
