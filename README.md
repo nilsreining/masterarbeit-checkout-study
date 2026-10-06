@@ -34,13 +34,18 @@ Danach <http://localhost:3000> öffnen. Optional: `cp .env.example .env.local`
 
 ### Demo-Links
 
+Teilnehmerdaten kommen aus der Google Apps Script Web-App (siehe Integration Point A).
+Test-Tokens, die dort hinterlegt sind (Stand 06.10.2026):
+
 | Link                                                    | Verhalten                                         |
 | ------------------------------------------------------- | ------------------------------------------------- |
-| <http://localhost:3000/study?token=GENERIC_DEMO>        | Bedingung `generic`                               |
-| <http://localhost:3000/study?token=PERSONALIZED_DEMO>   | Bedingung `personalized`                          |
-| <http://localhost:3000/study?token=COMPLETED_DEMO>      | serverseitig bereits abgeschlossen (simuliert)    |
-| <http://localhost:3000/study?token=INVALID_DEMO>        | ungültiger Token → Fehlerseite                    |
+| <http://localhost:3000/study?token=PTEST002>            | Bedingung `personalized`, nicht abgeschlossen     |
+| <http://localhost:3000/study?token=PTEST001>            | Bedingung `generic`, laut API bereits abgeschlossen |
+| <http://localhost:3000/study?token=INVALID_DEMO>        | unbekannter Token → Fehlerseite                   |
 | <http://localhost:3000/dev>                             | Entwickler-Übersicht (nur `npm run dev`)          |
+
+Die lokalen Demo-Tokens `GENERIC_DEMO`, `PERSONALIZED_DEMO` und `COMPLETED_DEMO` funktionieren
+nur noch mit `NEXT_PUBLIC_PARTICIPANT_SOURCE=mock` in `.env.local`.
 
 Der Fortschritt wird pro Token im `localStorage` gespeichert. Um einen Demo-Token erneut
 durchzuspielen, auf `/dev` „Lokalen Zustand zurücksetzen“ wählen oder in der Browser-Konsole
@@ -59,7 +64,7 @@ durchzuspielen, auf `/dev` „Lokalen Zustand zurücksetzen“ wählen oder in d
 /study/review               Bestellung überprüfen (ohne Hinweis)→ order_reviewed
       └─ „Auswahl bestätigen“  finale Entscheidung              → choice_confirmed
 /study/complete             Abschluss → „Weiter zur abschließenden Befragung“ → post_survey_opened
-      └─ POST_SURVEY_URL inkl. Token (aktuell: /survey-placeholder)
+      └─ Google Form 2 mit vorausgefüllter Studien-ID (Token)
 ```
 
 Der Token wird an jede Route als `?token=…` angehängt. Die Wurzel-URL `/` leitet auf `/study` weiter.
@@ -364,56 +369,91 @@ oft die Lieferoption gewechselt wurde.
 Alle Stellen sind im Code mit `INTEGRATION POINT A/B/C` markiert. Es ist bewusst keine
 konkrete Infrastruktur vorgegeben.
 
-### A – Teilnehmer-/Token-Datenbank
-**Datei:** `src/lib/services/participantService.ts`
+### A – Teilnehmerdaten (Google Apps Script Web-App) – **angebunden**
+**Dateien:** `src/lib/services/participantService.ts`, Konfiguration in `src/lib/studyConfig.ts`
 
-Den `mockParticipantService` durch eine Implementierung des Interfaces `ParticipantService` ersetzen, z. B.:
+Beim Laden einer Studienseite fragt die App `GET <STUDY_API_URL>?token=<TOKEN>` ab. Der Token
+kommt weiterhin aus dem URL-Parameter `?token=`.
 
-```ts
-const apiParticipantService: ParticipantService = {
-  async getParticipantByToken(token) {
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_STUDY_API_BASE_URL}/participants/${encodeURIComponent(token)}`);
-      if (res.status === 404) return { status: "not_found" };
-      if (!res.ok) return { status: "error" };
-      return { status: "found", participant: await res.json() };
-    } catch {
-      return { status: "error" };
-    }
-  },
-};
-export const participantService: ParticipantService = apiParticipantService;
-```
+| API-Antwort                                                         | Ergebnis in der App                                        |
+| ------------------------------------------------------------------- | ---------------------------------------------------------- |
+| `{ ok: true, participant_token, condition, nudge_text, completed: false }` | Studie startet; `nudge_text` wird als Hinweis angezeigt |
+| `{ ok: true, …, completed: true }`                                  | Abschlussseite „Sie haben diesen Teil der Studie bereits abgeschlossen.“ |
+| `{ ok: false, error: "unknown_token" }` (oder anderer Fehler)       | Fehlerseite „Dieser Studienlink ist leider ungültig …“     |
+| Netzwerkfehler, Timeout (20 s), unerwartetes Format, abweichender Token | neutrale Fehlerseite „Seite nicht verfügbar“            |
 
-Die API sollte nur `token`, `condition`, `nudgeText` und `studyCompleted` zurückgeben.
-Anschließend `src/lib/services/mock/` entfernen bzw. nicht mehr importieren.
+Abbildung: `participant_token → token`, `condition → condition` (nur `generic`/`personalized`),
+`nudge_text → nudgeText`, `completed → studyCompleted` (nur explizites `true` sperrt).
+Die Anfrage ist ein einfacher GET ohne eigene Header, Apps Script erlaubt ihn per CORS.
+Die Antwort dauert typischerweise 2–5 Sekunden; so lange erscheint die bestehende leere Ladeansicht.
 
-### B – Events und finale Entscheidung → Backend / Google Sheet
+Konfiguration (`.env.local`, optional):
+- `NEXT_PUBLIC_STUDY_API_URL`: andere Web-App-URL (Standard steht in `studyConfig.ts`).
+- `NEXT_PUBLIC_PARTICIPANT_SOURCE=mock`: lokale Demo-Tokens statt API (offline). Danach den Dev-Server neu starten.
+
+### B – Finale Entscheidung → Google Apps Script Web-App – **angebunden**
 **Datei:** `src/lib/services/studyEventService.ts` (Aufruf in `StudyContext.tsx → confirmDecision`)
 
-Den `mockStudyEventService` durch eine Implementierung ersetzen, die z. B. `POST /events`
-und `POST /decisions` aufruft. Vertrag:
+Beim Klick auf „Auswahl bestätigen“ sendet `submitDecision()` einen POST an `STUDY_API_URL`.
+Die einzelnen Tracking-Events (`track()`) bleiben lokal im Browser.
 
-- `track()` darf den Ablauf nie blockieren. Fehler werden geschluckt.
-- `submitDecision()` wird abgewartet. Bei einem Fehler (rejected Promise) zeigt die UI
-  „Ihre Auswahl konnte leider nicht gespeichert werden. Bitte versuchen Sie es erneut.“
-- **Serverseitige Sperre:** Das Backend sollte pro Token nur eine Entscheidung annehmen
-  (idempotent bzw. 409 bei Duplikaten) und danach `studyCompleted = true` liefern.
-- Google-Sheets-Zugangsdaten gehören ausschließlich ins Backend, nie in den Browser.
-- Empfehlung: zusätzlich einen serverseitigen Zeitstempel speichern
-  (`decisionTimestamp` ist Client-Zeit).
+- **Kein CORS-Preflight:** `Content-Type: text/plain;charset=utf-8`, keine eigenen Header.
+  Apps Script antwortet mit `Access-Control-Allow-Origin: *`, daher ist **kein** `mode: "no-cors"`
+  nötig, und die JSON-Antwort wird ausgewertet (im Browser geprüft).
+- **Body** (JSON; das Script liest ihn mit `JSON.parse(e.postData.contents)`):
 
-### C – URL der abschließenden Befragung (Google Form 2)
-**Datei:** `src/lib/studyConfig.ts → buildPostSurveyUrl(token)`
+```json
+{
+  "token": "PTEST002",
+  "items": [{ "product_id": "powerbank", "quantity": 2, "unit_price": 29.99, "line_total": 59.98 }],
+  "total": 59.98,
+  "delivery_choice": "bundled",
+  "decision_time_seconds": 14,
+  "number_of_different_products": 1,
+  "total_quantity": 2,
+  "default_delivery": "standard",
+  "switched_from_default": true,
+  "decision_timestamp": "2026-10-06T10:39:14.085Z",
+  "first_checkout_opened_at": "2026-10-06T10:39:00.671Z",
+  "standard_delivery_date": "2026-10-10",
+  "bundled_delivery_date": "2026-10-12"
+}
+```
 
-Konfiguration über `NEXT_PUBLIC_POST_SURVEY_URL`:
+  `condition` und `nudge_text` werden bewusst nicht gesendet; das Script liest sie anhand des
+  Tokens aus „Participants“. `decision_time_seconds` = Sekunden vom ersten Öffnen des Checkouts
+  bis „Auswahl bestätigen“.
+- **Auswertung der Antwort:**
 
-- leer → `/survey-placeholder?participant_token=<TOKEN>`
-- mit `{token}` → Platzhalter wird ersetzt. Das passt zum **vorausgefüllten Link** von Google
-  Forms: Im Formular „Vorausgefüllten Link abrufen“ wählen, in das Token-Feld z. B. `TOKEN`
-  eintragen, den Link kopieren und `TOKEN` durch `{token}` ersetzen:
-  `https://docs.google.com/forms/d/e/<FORM_ID>/viewform?usp=pp_url&entry.<FELD_ID>={token}`
-- ohne `{token}` → `?<NEXT_PUBLIC_POST_SURVEY_TOKEN_PARAM>=<TOKEN>` wird angehängt.
+| Antwort                                   | Verhalten der App                                                        |
+| ----------------------------------------- | ------------------------------------------------------------------------ |
+| `{ "ok": true, … }`                       | Abschlussseite „Auswahl abgeschlossen“; lokale Kopie als Browser-Sicherung |
+| `{ "ok": false, "error": "already_completed" }` | Seite „Sie haben diesen Teil der Studie bereits abgeschlossen.“     |
+| `{ "ok": false, … }` (z. B. `unknown_token`), HTTP-Fehler, Netzwerkfehler, Timeout (20 s) | Meldung „Ihre Auswahl konnte leider nicht gespeichert werden. Bitte versuchen Sie es erneut.“; **nicht** abgeschlossen, erneuter Versuch möglich |
+
+- **Doppelklick:** Der Button ist während der Anfrage deaktiviert, zusätzlich verhindert
+  `confirmDecision()` parallele Aufrufe. Es wird nur ein POST gesendet.
+- **Serverseitige Sperre:** Das Script lehnt eine zweite Entscheidung pro Token mit
+  `already_completed` ab und liefert beim GET danach `completed: true`.
+- Ein POST dauert typischerweise 3–6 Sekunden.
+- Bei `NEXT_PUBLIC_PARTICIPANT_SOURCE=mock` wird die Entscheidung nur lokal gespeichert.
+
+### C – Weiterleitung zu Google Form 2 – **angebunden**
+**Datei:** `src/lib/studyConfig.ts → buildPostSurveyUrl(token)` (aufgerufen in `StudyContext.tsx → openPostSurvey`)
+
+Der Button „Weiter zur abschließenden Befragung“ erscheint nur auf der Abschlussseite, also erst
+nach erfolgreich gespeicherter Entscheidung (oder wenn der Server den Token als abgeschlossen meldet).
+Er öffnet einen vorausgefüllten Link, in dem die Studien-ID bereits eingetragen ist:
+
+`https://docs.google.com/forms/d/e/1FAIpQLSftvNZ2O054MHhebfBz_K7V-Z4bLlFNUcioz7DZ5w5JYrTwhQ/viewform?usp=pp_url&entry.1548559708=<TOKEN>`
+
+- Standard-URL und Entry-ID (`entry.1548559708`, Frage „Studien-ID“) stehen in `studyConfig.ts`.
+- Überschreibbar über `NEXT_PUBLIC_POST_SURVEY_URL` und `NEXT_PUBLIC_POST_SURVEY_TOKEN_PARAM`;
+  für lokale Tests ohne Google z. B. `/survey-placeholder` mit `participant_token`.
+- **Formular-Einstellungen:** Das Formular darf keine Google-Anmeldung verlangen. In Google Forms
+  unter „Einstellungen → Antworten“ müssen „E-Mail-Adressen erfassen“ auf „Nicht erfassen“
+  und „Auf 1 Antwort beschränken“ deaktiviert sein. Außerdem darf der Zugriff nicht auf eine
+  Organisation beschränkt sein. Sonst sehen Teilnehmende ohne Login eine Anmeldeseite.
 
 `NEXT_PUBLIC_*`-Variablen werden **beim Build** eingebettet. Nach einer Änderung muss neu gebaut werden.
 
@@ -423,7 +463,7 @@ Siehe `.env.example`.
 | Variable                               | Status        | Zweck                                         |
 | -------------------------------------- | ------------- | --------------------------------------------- |
 | `NEXT_PUBLIC_POST_SURVEY_URL`          | verwendet     | URL Google Form 2 (C)                         |
-| `NEXT_PUBLIC_POST_SURVEY_TOKEN_PARAM`  | verwendet     | Parametername für den Token (C)               |
+| `NEXT_PUBLIC_POST_SURVEY_TOKEN_PARAM`  | verwendet     | Entry-ID / Parametername für den Token (C)    |
 | `NEXT_PUBLIC_STUDY_API_BASE_URL`       | Vorschlag     | Basis-URL eines Studien-Backends (A, B)       |
 | `DATABASE_URL`, `GOOGLE_*`             | Vorschlag     | nur serverseitig im Backend, nie `NEXT_PUBLIC_` |
 

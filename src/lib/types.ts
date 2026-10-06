@@ -136,9 +136,19 @@ export interface DeliveryDecision extends CartSnapshot {
   displayedNudge: string;
   /** ISO-8601-Zeitstempel (Client-Zeit). */
   decisionTimestamp: string;
+  /** Erstes Öffnen des Checkouts (ISO-8601, Client-Zeit); null bei sehr alten lokalen Sessions. */
+  firstCheckoutOpenedAt: string | null;
+  /** Ganze Sekunden von firstCheckoutOpenedAt bis decisionTimestamp; null, wenn nicht bestimmbar. */
+  decisionTimeSeconds: number | null;
   standardDeliveryDate: string;
   bundledDeliveryDate: string;
 }
+
+/** Ergebnis von submitDecision(). Technische Fehler werden als rejected Promise gemeldet. */
+export type SubmitDecisionResult =
+  | { status: "saved" }
+  /** Server kennt für diesen Token bereits eine Entscheidung → bestehende Sperrlogik verwenden. */
+  | { status: "already_completed" };
 
 /** Lokal (pro Token) gespeicherter Fortschritt, damit ein Reload nichts verliert. */
 export interface StudySession {
@@ -150,5 +160,7 @@ export interface StudySession {
   deliveryChoice: DeliveryChoice;
   /** Wird beim ersten Öffnen des Checkouts festgelegt und danach nicht mehr verändert. */
   deliveryDates: DeliveryDates | null;
+  /** Zeitpunkt des ersten Öffnens des Checkouts (ISO-8601), Basis für decisionTimeSeconds. */
+  firstCheckoutOpenedAt: string | null;
   completed: boolean;
 }

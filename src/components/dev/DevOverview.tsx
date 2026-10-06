@@ -13,7 +13,7 @@ import { resetLocalStudyState } from "@/lib/study/debug";
 import { withToken, ROUTES } from "@/lib/study/routes";
 import type { DeliveryDecision, StudyEvent, StudySession } from "@/lib/types";
 
-const DEMO_TOKENS = ["GENERIC_DEMO", "PERSONALIZED_DEMO", "COMPLETED_DEMO", "INVALID_DEMO"];
+const DEMO_TOKENS = ["PTEST002", "PTEST001", "GENERIC_DEMO", "PERSONALIZED_DEMO", "COMPLETED_DEMO", "INVALID_DEMO"];
 
 interface TokenState {
   token: string;

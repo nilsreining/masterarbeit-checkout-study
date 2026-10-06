@@ -3,7 +3,7 @@ import { POST_SURVEY_TOKEN_PARAM } from "@/lib/studyConfig";
 
 /**
  * Lokaler Platzhalter für Google Form 2 (abschließende Befragung).
- * Wird verwendet, solange NEXT_PUBLIC_POST_SURVEY_URL nicht gesetzt ist.
+ * Nur für lokale Tests: NEXT_PUBLIC_POST_SURVEY_URL=/survey-placeholder (siehe .env.example).
  */
 export default async function SurveyPlaceholderPage({ searchParams }: PageProps<"/survey-placeholder">) {
   const value = (await searchParams)[POST_SURVEY_TOKEN_PARAM];

@@ -99,6 +99,13 @@ export function useRunOnce(enabled: boolean, fn: () => void): void {
   }, [enabled, fn]);
 }
 
+/** Ganze Sekunden zwischen zwei ISO-Zeitstempeln (nie negativ); null, wenn der Start fehlt. */
+function secondsBetween(startIso: string | null, endIso: string): number | null {
+  if (!startIso) return null;
+  const ms = Date.parse(endIso) - Date.parse(startIso);
+  return Number.isFinite(ms) ? Math.max(0, Math.round(ms / 1000)) : null;
+}
+
 /** Maximale Wartezeit auf das Tracking, bevor zur Befragung weitergeleitet wird. */
 const POST_SURVEY_TRACK_TIMEOUT_MS = 1500;
 
@@ -250,8 +257,14 @@ function StudyProviderForToken({ token, children }: { token: string; children: R
       },
 
       ensureDeliveryDates() {
-        if (sessionRef.current && !sessionRef.current.deliveryDates) {
-          updateSession({ deliveryDates: computeDeliveryDates() });
+        const session = sessionRef.current;
+        if (!session) return;
+        // Beim ersten Öffnen des Checkouts: Liefertermine festlegen und Startzeit der Entscheidung merken.
+        if (!session.deliveryDates || !session.firstCheckoutOpenedAt) {
+          updateSession({
+            deliveryDates: session.deliveryDates ?? computeDeliveryDates(),
+            firstCheckoutOpenedAt: session.firstCheckoutOpenedAt ?? new Date().toISOString(),
+          });
         }
       },
 
@@ -264,6 +277,7 @@ function StudyProviderForToken({ token, children }: { token: string; children: R
 
         confirmingRef.current = true;
         try {
+          const decisionTimestamp = new Date().toISOString();
           const decision: DeliveryDecision = {
             participantToken: token,
             condition: participant.condition,
@@ -272,12 +286,22 @@ function StudyProviderForToken({ token, children }: { token: string; children: R
             defaultDelivery: DEFAULT_DELIVERY,
             switchedFromDefault: session.deliveryChoice !== DEFAULT_DELIVERY,
             displayedNudge: participant.nudgeText,
-            decisionTimestamp: new Date().toISOString(),
+            decisionTimestamp,
+            firstCheckoutOpenedAt: session.firstCheckoutOpenedAt,
+            decisionTimeSeconds: secondsBetween(session.firstCheckoutOpenedAt, decisionTimestamp),
             standardDeliveryDate: session.deliveryDates.standard,
             bundledDeliveryDate: session.deliveryDates.bundled,
           };
           // INTEGRATION POINT B: Übertragung der finalen Entscheidung.
-          await studyEventService.submitDecision(decision);
+          // Wirft bei Netzwerk-/Speicherfehlern → OrderReview zeigt eine neutrale Fehlermeldung,
+          // die Studie gilt dann NICHT als abgeschlossen und kann erneut bestätigt werden.
+          const result = await studyEventService.submitDecision(decision);
+          if (result.status === "already_completed") {
+            // Server hat bereits eine Entscheidung für diesen Token → bestehende Sperrlogik
+            // („Sie haben diesen Teil der Studie bereits abgeschlossen.“).
+            updateSession({ completed: true });
+            return;
+          }
           track("choice_confirmed", {
             includeNudge: true,
             includeCartSnapshot: true,

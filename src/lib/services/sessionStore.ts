@@ -22,6 +22,7 @@ export function createSession(token: string): StudySession {
     cart: [],
     deliveryChoice: DEFAULT_DELIVERY,
     deliveryDates: null,
+    firstCheckoutOpenedAt: null,
     completed: false,
   };
 }
@@ -57,6 +58,7 @@ export function loadSession(token: string): StudySession {
     cart: migrateCart(stored),
     deliveryChoice: stored.deliveryChoice ?? base.deliveryChoice,
     deliveryDates: stored.deliveryDates ?? base.deliveryDates,
+    firstCheckoutOpenedAt: stored.firstCheckoutOpenedAt ?? base.firstCheckoutOpenedAt,
     completed: stored.completed ?? base.completed,
   };
 }
