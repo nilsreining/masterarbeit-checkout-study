@@ -13,20 +13,20 @@ export const MOCK_PARTICIPANTS: readonly Participant[] = [
   {
     token: "GENERIC_DEMO",
     condition: "generic",
-    nudgeText: "Gebündelte Zustellung kann helfen, einzelne Lieferfahrten zu reduzieren.",
+    nudgeText: "Zwei zusätzliche Tage geben der Zustellung mehr Planungsspielraum und können dadurch helfen, die Lieferung insgesamt nachhaltiger zu gestalten.",
     studyCompleted: false,
   },
   {
     token: "PERSONALIZED_DEMO",
     condition: "personalized",
-    nudgeText: "Mit etwas mehr Lieferzeit können Zustellungen effizienter gebündelt werden.",
+    nudgeText: "Mit etwas mehr Lieferzeit können Zustellungen effizienter geplant werden.",
     studyCompleted: false,
   },
   {
     // Simuliert einen Teilnehmer, den das Backend bereits als abgeschlossen führt.
     token: "COMPLETED_DEMO",
     condition: "generic",
-    nudgeText: "Gebündelte Zustellung kann helfen, einzelne Lieferfahrten zu reduzieren.",
+    nudgeText: "Zwei zusätzliche Tage geben der Zustellung mehr Planungsspielraum und können dadurch helfen, die Lieferung insgesamt nachhaltiger zu gestalten.",
     studyCompleted: true,
   },
 ];

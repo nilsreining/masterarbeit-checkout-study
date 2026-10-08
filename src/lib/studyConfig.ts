@@ -15,7 +15,7 @@ export const DEFAULT_DELIVERY = "standard" satisfies DeliveryChoice;
 /** Anzeigenamen der Lieferoptionen (Checkout und Bestellübersicht). */
 export const DELIVERY_OPTION_LABELS: Record<DeliveryChoice, string> = {
   standard: "Standardlieferung",
-  bundled: "Gebündelte Lieferung",
+  bundled: "Spätere Lieferung",
 };
 
 /** Versandkosten in Cent – für beide Lieferoptionen identisch. */
@@ -29,10 +29,10 @@ export const BUNDLED_DELIVERY_EXTRA_DAYS = 2;
 
 /**
  * Maximallänge des Hinweistexts. Bis zu dieser Länge passt der Text bei allen
- * Bildschirmbreiten ab 320 px in den reservierten Platz (mobil 3, ab 640 px 2 Zeilen),
+ * Bildschirmbreiten ab 320 px in den reservierten Platz (< 360 px 7, ab 360 px 6, ab 640 px 3 Zeilen),
  * sodass der Platzbedarf in beiden Bedingungen identisch bleibt. Gemessen im Browser.
  */
-export const NUDGE_MAX_RECOMMENDED_LENGTH = 100;
+export const NUDGE_MAX_RECOMMENDED_LENGTH = 160;
 
 /**
  * INTEGRATION POINT A/B – Google Apps Script Web-App (Studien-API).

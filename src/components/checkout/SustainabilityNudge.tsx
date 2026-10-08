@@ -17,7 +17,7 @@ const NUDGE_LABEL = "Hinweis zur Lieferung";
  * Linie links) mit Label „Hinweis zur Lieferung“ und neutralem Info-Icon – deutlich
  * wahrnehmbar, aber ohne Akzentfarbe, Animation oder Werbecharakter.
  *
- * Platzbedarf: Der Textbereich reserviert 5 Zeilen (< 360 px), 3 Zeilen (ab 360 px) bzw. 2 Zeilen (ab 640 px).
+ * Platzbedarf: Der Textbereich reserviert 7 Zeilen (< 360 px), 6 Zeilen (ab 360 px) bzw. 3 Zeilen (ab 640 px).
  * Texte bis NUDGE_MAX_RECOMMENDED_LENGTH Zeichen passen ab 320 px Breite sicher
  * hinein (im Browser gemessen), die Box ist dadurch in beiden Bedingungen gleich groß.
  * Wird die Grenze erhöht, müssen die min-h-Werte gemeinsam angepasst werden.
@@ -43,7 +43,7 @@ export function SustainabilityNudge({ text, id }: { text: string; id?: string })
         <InfoIcon />
         {NUDGE_LABEL}
       </span>
-      <span id={id} className="mt-1.5 block min-h-[110px] text-sm leading-[22px] text-neutral-800 min-[360px]:min-h-[66px] sm:min-h-[44px]">
+      <span id={id} className="mt-1.5 block min-h-[154px] text-sm leading-[22px] text-neutral-800 min-[360px]:min-h-[132px] sm:min-h-[66px]">
         {text}
       </span>
     </span>
