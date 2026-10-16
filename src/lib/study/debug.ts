@@ -9,7 +9,7 @@
  *
  * Eine Übersicht über alle Demo-Tokens bietet zusätzlich die Seite /dev.
  */
-import { removeKey, storageKeys } from "../services/browserStorage";
+import { removeKey, removeTabFlag, storageKeys } from "../services/browserStorage";
 import { readMockDecision, readMockEvents } from "../services/studyEventService";
 import { IS_DEVELOPMENT } from "../studyConfig";
 import type { Participant, StudySession } from "../types";
@@ -26,6 +26,7 @@ export function resetLocalStudyState(token: string): void {
   removeKey(storageKeys.session(token));
   removeKey(storageKeys.events(token));
   removeKey(storageKeys.decision(token));
+  removeTabFlag(storageKeys.completedInTab(token));
 }
 
 export function exposeStudyDebug(token: string, participant: Participant, session: StudySession): void {

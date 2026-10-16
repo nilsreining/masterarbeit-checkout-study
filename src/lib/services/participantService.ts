@@ -18,7 +18,7 @@
  * │ wenn NEXT_PUBLIC_PARTICIPANT_SOURCE=mock gesetzt ist.                     │
  * └──────────────────────────────────────────────────────────────────────────┘
  */
-import { PARTICIPANT_SOURCE, STUDY_API_TIMEOUT_MS, STUDY_API_URL } from "../studyConfig";
+import { PARTICIPANT_LOOKUP_TIMEOUT_MS, PARTICIPANT_SOURCE, STUDY_API_URL } from "../studyConfig";
 import type { Condition, Participant, ParticipantLookupResult } from "../types";
 import { MOCK_PARTICIPANTS } from "./mock/mockParticipants";
 
@@ -75,7 +75,7 @@ const appsScriptParticipantService: ParticipantService = {
     url.searchParams.set("token", token);
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), STUDY_API_TIMEOUT_MS);
+    const timeout = setTimeout(() => controller.abort(), PARTICIPANT_LOOKUP_TIMEOUT_MS);
     try {
       // Einfache GET-Anfrage ohne eigene Header: Apps Script erlaubt sie per CORS ohne Preflight.
       const response = await fetch(url, { method: "GET", cache: "no-store", signal: controller.signal });

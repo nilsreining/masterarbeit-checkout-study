@@ -415,7 +415,7 @@ kommt weiterhin aus dem URL-Parameter `?token=`.
 | `{ ok: true, participant_token, condition, nudge_text, completed: false }` | Studie startet; `nudge_text` wird als Hinweis angezeigt |
 | `{ ok: true, …, completed: true }`                                  | Abschlussseite „Sie haben diesen Teil der Studie bereits abgeschlossen.“ |
 | `{ ok: false, error: "unknown_token" }` (oder anderer Fehler)       | Fehlerseite „Dieser Studienlink ist leider ungültig …“     |
-| Netzwerkfehler, Timeout (20 s), unerwartetes Format, abweichender Token | neutrale Fehlerseite „Seite nicht verfügbar“            |
+| Netzwerkfehler, Timeout (12 s), unerwartetes Format, abweichender Token | 2 automatische Wiederholungen, danach Fehlerseite „Seite nicht verfügbar“ mit „Erneut versuchen“ |
 
 Abbildung: `participant_token → token`, `condition → condition` (nur `generic`/`personalized`),
 `nudge_text → nudgeText`, `completed → studyCompleted` (nur explizites `true` sperrt).

@@ -17,10 +17,11 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { InvalidLink, StudyLoadError, StudyLoading } from "@/components/study/StudyStatus";
 import * as cartLogic from "../cart";
 import { computeDeliveryDates } from "../services/dateService";
+import { readTabFlag, storageKeys, writeTabFlag } from "../services/browserStorage";
 import { getParticipantByToken, normalizeToken } from "../services/participantService";
 import { loadSession, saveSession } from "../services/sessionStore";
 import { studyEventService } from "../services/studyEventService";
-import { buildPostSurveyUrl, DEFAULT_DELIVERY } from "../studyConfig";
+import { buildPostSurveyUrl, DEFAULT_DELIVERY, SLOW_LOADING_NOTICE_MS } from "../studyConfig";
 import type {
   DeliveryChoice,
   DeliveryDecision,
@@ -46,7 +47,7 @@ interface StudyContextValue extends StudyActions {
   token: string;
   participant: Participant;
   session: StudySession;
-  /** true nur direkt nach „Auswahl bestätigen“ in diesem Seitenaufruf (für die Abschlussseite). */
+  /** true, wenn „Auswahl bestätigen“ in diesem Tab erfolgreich war – bleibt bei einem Refresh erhalten (für die Abschlussseite). */
   completedInThisVisit: boolean;
 }
 
@@ -109,6 +110,34 @@ function secondsBetween(startIso: string | null, endIso: string): number | null 
 /** Maximale Wartezeit auf das Tracking, bevor zur Befragung weitergeleitet wird. */
 const POST_SURVEY_TRACK_TIMEOUT_MS = 1500;
 
+/** Wartezeiten vor erneuten Versuchen, falls das Laden der Teilnehmerdaten fehlschlägt. */
+const PARTICIPANT_RETRY_DELAYS_MS = [1000, 2500];
+
+/**
+ * Lädt den Teilnehmer und wiederholt die Anfrage bei technischen Fehlern (Netzwerk, Timeout,
+ * Apps-Script-Fehlerseite). Jeder Seitenaufruf – auch ein Refresh – fragt die API neu ab;
+ * ein einzelner Aussetzer soll die Teilnahme nicht beenden. Ein unbekannter Token
+ * (not_found) wird nicht wiederholt. `onRetry` wird vor jeder automatischen Wiederholung aufgerufen.
+ */
+async function loadParticipantWithRetry(
+  token: string,
+  isCancelled: () => boolean,
+  onRetry: () => void,
+): Promise<ParticipantLookupResult> {
+  for (let attempt = 0; ; attempt++) {
+    let result: ParticipantLookupResult;
+    try {
+      result = await getParticipantByToken(token);
+    } catch {
+      result = { status: "error" };
+    }
+    const delay = PARTICIPANT_RETRY_DELAYS_MS[attempt];
+    if (result.status !== "error" || delay === undefined || isCancelled()) return result;
+    onRetry();
+    await new Promise((resolve) => setTimeout(resolve, delay));
+  }
+}
+
 export function StudyProvider({ children }: { children: React.ReactNode }) {
   const token = normalizeToken(useSearchParams().get("token"));
 
@@ -124,7 +153,8 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
 }
 
 type LoadState =
-  | { status: "loading" }
+  /** slow: Laden dauert länger als SLOW_LOADING_NOTICE_MS oder ein erneuter Versuch läuft. */
+  | { status: "loading"; slow: boolean }
   | { status: "not_found" }
   | { status: "error" }
   | { status: "ready"; participant: Participant; session: StudySession };
@@ -133,21 +163,22 @@ function StudyProviderForToken({ token, children }: { token: string; children: R
   const router = useRouter();
   // Mit trailingSlash: true liefert usePathname() z. B. "/study/complete/" → für Vergleiche normalisieren.
   const pathname = usePathname().replace(/(.)\/$/, "$1");
-  const [state, setState] = useState<LoadState>({ status: "loading" });
-  const [completedInThisVisit, setCompletedInThisVisit] = useState(false);
+  const [state, setState] = useState<LoadState>({ status: "loading", slow: false });
+  /** Wird über „Erneut versuchen“ erhöht und startet das Laden der Teilnehmerdaten neu. */
+  const [loadRequest, setLoadRequest] = useState(0);
+  // sessionStorage: Nach einem Refresh der Abschlussseite erscheint weiterhin „Auswahl abgeschlossen“.
+  const [completedInThisVisit, setCompletedInThisVisit] = useState(() => readTabFlag(storageKeys.completedInTab(token)));
   const sessionRef = useRef<StudySession | null>(null);
   const participantRef = useRef<Participant | null>(null);
   const confirmingRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
+    const markSlow = () => setState((s) => (s.status === "loading" && !s.slow ? { ...s, slow: true } : s));
+    const slowTimer = setTimeout(markSlow, SLOW_LOADING_NOTICE_MS);
     (async () => {
-      let result: ParticipantLookupResult;
-      try {
-        result = await getParticipantByToken(token);
-      } catch {
-        result = { status: "error" };
-      }
+      const result = await loadParticipantWithRetry(token, () => cancelled, markSlow);
+      clearTimeout(slowTimer);
       if (cancelled) return;
       if (result.status !== "found") {
         setState({ status: result.status });
@@ -160,8 +191,15 @@ function StudyProviderForToken({ token, children }: { token: string; children: R
     })();
     return () => {
       cancelled = true;
+      clearTimeout(slowTimer);
     };
-  }, [token]);
+  }, [token, loadRequest]);
+
+  /** Manueller erneuter Versuch von der Fehlerseite: lädt nur die Teilnehmerdaten neu, lokaler Fortschritt bleibt. */
+  const retryLoad = useCallback(() => {
+    setState({ status: "loading", slow: true });
+    setLoadRequest((n) => n + 1);
+  }, []);
 
   const isCompleted =
     state.status === "ready" && (state.participant.studyCompleted || state.session.completed);
@@ -308,6 +346,7 @@ function StudyProviderForToken({ token, children }: { token: string; children: R
             includeCartSnapshot: true,
             details: { switchedFromDefault: decision.switchedFromDefault },
           });
+          writeTabFlag(storageKeys.completedInTab(token));
           setCompletedInThisVisit(true);
           // Löst über mustRedirectToCompletion die Weiterleitung zur Abschlussseite aus.
           updateSession({ completed: true });
@@ -343,9 +382,9 @@ function StudyProviderForToken({ token, children }: { token: string; children: R
     }
   }, [state, token]);
 
-  if (state.status === "loading") return <StudyLoading />;
+  if (state.status === "loading") return <StudyLoading slow={state.slow} />;
   if (state.status === "not_found") return <InvalidLink />;
-  if (state.status === "error") return <StudyLoadError />;
+  if (state.status === "error") return <StudyLoadError onRetry={retryLoad} />;
   if (mustRedirectToCompletion) return <StudyLoading />;
 
   return <StudyContext.Provider value={value}>{children}</StudyContext.Provider>;

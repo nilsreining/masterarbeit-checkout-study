@@ -48,8 +48,21 @@ const DEFAULT_STUDY_API_URL =
 
 export const STUDY_API_URL = process.env.NEXT_PUBLIC_STUDY_API_URL?.trim() || DEFAULT_STUDY_API_URL;
 
-/** Apps Script antwortet je nach Auslastung erst nach einigen Sekunden; danach gilt die Anfrage als fehlgeschlagen. */
+/**
+ * Timeout für das Speichern der Entscheidung (POST). Bewusst großzügig: Ein vorzeitiger Abbruch
+ * würde eine Fehlermeldung zeigen, obwohl das Script womöglich noch speichert.
+ */
 export const STUDY_API_TIMEOUT_MS = 20_000;
+
+/**
+ * Timeout für das Laden der Teilnehmerdaten (GET). Gemessen: 1,7–3,3 s (Oktober 2026), 12 s lassen
+ * Raum für Kaltstarts des Scripts. Bei Fehlern wird automatisch wiederholt (siehe StudyContext),
+ * die maximale Wartezeit bis zur Fehlerseite liegt damit bei rund 40 s statt rund 64 s.
+ */
+export const PARTICIPANT_LOOKUP_TIMEOUT_MS = 12_000;
+
+/** Ab dieser Ladedauer erscheint der Hinweis, dass die Verbindung etwas länger dauert. */
+export const SLOW_LOADING_NOTICE_MS = 5_000;
 
 /**
  * Quelle der Teilnehmerdaten: "apps-script" (Standard) oder "mock" (lokale Demo-Tokens
